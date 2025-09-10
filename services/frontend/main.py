@@ -6,10 +6,10 @@ import re
 
 # --- Configuration ---
 API_URLS = {
-    "ingestion": "http://ingestion:8001/upload/",
-    "chat": "http://chat:8002/chat",
-    "stt": "http://voice:8003/stt",
-    "tts": "http://voice:8003/tts",
+    "ingestion": "http://localhost:8001/upload/",
+    "chat": "http://localhost:8002/chat",
+    "stt": "http://localhost:8003/stt",
+    "tts": "http://localhost:8003/tts",
 }
 
 st.set_page_config(page_title="AI Invoice Assistant", page_icon="🧾", layout="centered")
