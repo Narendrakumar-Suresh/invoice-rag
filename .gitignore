@@ -1,4 +1,87 @@
-.venv
-.idea
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
 
-.env/*
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+venv/
+ENV/
+.venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+.idea
+.ropeproject
+.ruff_cache
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# mypy
+.mypy_cache/
+.dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# VS Code
+.vscode/
+
+# dotenv environment variables
+.env
+.env.*
+
+# Docker
+**/data/
+**/tmp/
+**/logs/
+**/qdrant_data/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# PDF, docx, and image outputs (invoices)
+invoices/*.pdf
+invoices/*.docx
+invoices/*.png
+
+# Misc
+*.log

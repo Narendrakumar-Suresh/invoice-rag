@@ -21,41 +21,53 @@ class IngestedPoint(BaseModel):
     payload: Dict[str, Any]
     vector: Optional[List[float]] = None
 
-class UploadResponse(BaseModel):
-    """Defines the structure of the entire JSON response for the /upload endpoint."""
+class FileResult(BaseModel):
+    """Defines the structure for a single file ingestion result."""
     filename: str
     message: str
     data: List[IngestedPoint]
 
+class UploadResponse(BaseModel):
+    """Defines the structure of the JSON response when multiple files are uploaded."""
+    results: List[FileResult]
+
 # --- API Endpoints ---
 @app.post("/upload/", response_model=UploadResponse)
-async def upload_invoice(file: UploadFile = File(...)):
+async def upload_invoices(files: List[UploadFile] = File(...)):
     """
-    Endpoint to upload a file (PDF, DOCX, JPG, etc.).
-    The file is saved, ingested, and the generated data is returned.
+    Endpoint to upload multiple files (PDF, DOCX, JPG, etc.).
+    Each file is saved, ingested, and the generated data is returned.
     """
-    file_path = os.path.join(DATA_FOLDER, file.filename)
+    results: List[FileResult] = []
 
     try:
-        # Save the uploaded file to disk
-        with open(file_path, "wb") as buffer:
-            buffer.write(await file.read())
+        for file in files:
+            file_path = os.path.join(DATA_FOLDER, file.filename)
 
-        # Process the file and get the list of generated points
-        ingested_data = ingest_document(file_path, COLLECTION_NAME)
+            # Save file
+            with open(file_path, "wb") as buffer:
+                buffer.write(await file.read())
 
-        # Convert the list of PointStruct objects into a list of dictionaries
-        # so it can be properly returned as JSON.
-        response_data = [point.model_dump() for point in ingested_data]
+            # Ingest file
+            ingested_data = ingest_document(file_path, COLLECTION_NAME)
 
-        return {
-            "filename": file.filename,
-            "message": "File uploaded and ingested successfully.",
-            "data": response_data
-        }
+            # Convert to dicts
+            response_data = [point.model_dump() for point in ingested_data]
+
+            # Append result
+            results.append(FileResult(
+                filename=file.filename,
+                message="File uploaded and ingested successfully.",
+                data=response_data
+            ))
+
+        return {"results": results}
+
     except Exception as e:
-        # Return a detailed error if something goes wrong
-        raise HTTPException(status_code=500, detail=f"An error occurred during file ingestion: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred during file ingestion: {str(e)}"
+        )
 
 @app.get("/")
 def read_root():

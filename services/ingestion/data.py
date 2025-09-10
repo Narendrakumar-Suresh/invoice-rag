@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 from google import genai
 from qdrant_client import QdrantClient, models
 from typing import List
+import hashlib
+
 
 # New import for handling PDF OCR
 from pdf2image import convert_from_path
@@ -24,7 +26,7 @@ try:
     # Using the Google.genai Client as you suggested
     gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     #qdrant_client = QdrantClient(url=os.getenv("QDRANT_URL"), api_key=os.getenv("QDRANT_KEY"))
-    qdrant_client = QdrantClient(host = "localhost", port = 6333)
+    qdrant_client = QdrantClient(host = "qdrant", port = 6333)
 
     print("Successfully connected to Gemini and Qdrant.")
 except Exception as e:
@@ -94,6 +96,28 @@ def split_text(text: str) -> list[str]:
     """Splits text into smaller chunks based on double newlines."""
     return [chunk.strip() for chunk in re.split(r"\n\n+", text) if chunk.strip()]
 
+def compute_file_hash(file_path: str) -> str:
+    """Compute SHA256 hash of file contents."""
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+def file_already_ingested(collection_name: str, file_hash: str) -> bool:
+    """Check if a file with the same hash already exists in Qdrant."""
+    try:
+        results = qdrant_client.scroll(
+            collection_name=collection_name,
+            scroll_filter=models.Filter(
+                must=[models.FieldCondition(key="file_hash", match=models.MatchValue(value=file_hash))]
+            ),
+            limit=1
+        )
+        return len(results[0]) > 0
+    except Exception as e:
+        print(f"Error checking for duplicate file: {e}")
+        return False
 
 def ensure_collection_exists(collection_name: str):
     """Creates the collection if it doesn't exist."""
@@ -127,12 +151,17 @@ def cleanup_file(file_path: str):
     except Exception as e:
         print(f"Error cleaning up file {file_path}: {e}")
 
-
 def ingest_document(file_path: str, collection_name: str) -> List[models.PointStruct]:
-    """Orchestrates file processing, embedding, and upserting to Qdrant."""
+    """Orchestrates file processing, embedding, and upserting to Qdrant with deduplication."""
     try:
         print(f"Starting ingestion for: {file_path}")
         ensure_collection_exists(collection_name)
+
+        # Compute file hash
+        file_hash = compute_file_hash(file_path)
+        if file_already_ingested(collection_name, file_hash):
+            print(f"Duplicate detected: {file_path} already ingested. Skipping.")
+            return []
 
         document_text = process_file(file_path)
         if not document_text:
@@ -148,7 +177,11 @@ def ingest_document(file_path: str, collection_name: str) -> List[models.PointSt
                     models.PointStruct(
                         id=str(uuid.uuid4()),
                         vector=vector,
-                        payload={"text": chunk, "source_file": os.path.basename(file_path)}
+                        payload={
+                            "text": chunk,
+                            "source_file": os.path.basename(file_path),
+                            "file_hash": file_hash
+                        }
                     )
                 )
 
@@ -163,5 +196,4 @@ def ingest_document(file_path: str, collection_name: str) -> List[models.PointSt
         return points_to_upsert
 
     finally:
-        # Always cleanup file, even if an error occurs
         cleanup_file(file_path)
